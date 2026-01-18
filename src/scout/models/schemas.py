@@ -76,3 +76,20 @@ class AnalysisResult(BaseModel):
 
 class ErrorResponse(BaseModel):
     detail: str
+
+
+class ProjectRelevance(BaseModel):
+    """Relevance result for a single project in multi-project analysis."""
+    project: str
+    relevance: RelevanceLevel
+    insights: list[str] = Field(default_factory=list)
+    suggestions: list[str] = Field(default_factory=list)
+
+
+class MultiProjectReviewResponse(BaseModel):
+    """Response when analyzing against all projects."""
+    url: str
+    title: str
+    content_type: ContentType
+    results: list[ProjectRelevance] = Field(default_factory=list)
+    logged_at: datetime

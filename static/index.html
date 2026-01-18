@@ -223,6 +223,54 @@
             display: block;
         }
 
+        .project-result {
+            padding: 16px;
+            margin-bottom: 12px;
+            background: #252525;
+            border-radius: 8px;
+            border-left: 3px solid #646cff;
+        }
+
+        .project-result:last-child {
+            margin-bottom: 0;
+        }
+
+        .project-result-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 8px;
+        }
+
+        .project-name {
+            font-weight: 600;
+            color: #fff;
+            font-size: 1rem;
+        }
+
+        .project-insights {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .project-insights li {
+            padding: 4px 0;
+            padding-left: 16px;
+            position: relative;
+            font-size: 0.875rem;
+            line-height: 1.4;
+            color: #b0b0b0;
+        }
+
+        .project-insights li::before {
+            content: '•';
+            position: absolute;
+            left: 0;
+            color: #646cff;
+        }
+
         @media (max-width: 480px) {
             body {
                 padding: 12px;
@@ -303,6 +351,12 @@
                 const data = await response.json();
                 select.innerHTML = '<option value="">Select a project...</option>';
 
+                // Add "All Projects" option first
+                const allOption = document.createElement('option');
+                allOption.value = 'all';
+                allOption.textContent = '📊 All Projects (find relevant ones)';
+                select.appendChild(allOption);
+
                 data.projects.forEach(project => {
                     const option = document.createElement('option');
                     option.value = project.name;
@@ -361,14 +415,35 @@
 
         function displayResults(data) {
             const results = document.getElementById('results');
+
+            // Check if this is a multi-project response
+            if (data.results) {
+                displayMultiProjectResults(data);
+            } else {
+                displaySingleProjectResults(data);
+            }
+
+            results.classList.add('active');
+        }
+
+        function displaySingleProjectResults(data) {
             const title = document.getElementById('resultsTitle');
             const badge = document.getElementById('relevanceBadge');
             const contentType = document.getElementById('contentType');
             const insightsList = document.getElementById('insightsList');
             const suggestionsList = document.getElementById('suggestionsList');
+            const insightsSection = document.getElementById('insightsSection');
+            const suggestionsSection = document.getElementById('suggestionsSection');
+            const multiResults = document.getElementById('multiResults');
+
+            // Hide multi-project section, show single-project sections
+            if (multiResults) multiResults.style.display = 'none';
+            insightsSection.style.display = 'block';
+            suggestionsSection.style.display = 'block';
 
             title.textContent = data.title;
             badge.textContent = data.relevance;
+            badge.style.display = 'inline-block';
             badge.className = `relevance-badge relevance-${data.relevance}`;
             contentType.textContent = `${data.content_type.toUpperCase()} • ${data.project}`;
 
@@ -387,8 +462,57 @@
                 li.textContent = suggestion;
                 suggestionsList.appendChild(li);
             });
+        }
 
-            results.classList.add('active');
+        function displayMultiProjectResults(data) {
+            const title = document.getElementById('resultsTitle');
+            const badge = document.getElementById('relevanceBadge');
+            const contentType = document.getElementById('contentType');
+            const insightsSection = document.getElementById('insightsSection');
+            const suggestionsSection = document.getElementById('suggestionsSection');
+
+            // Hide single-project sections
+            insightsSection.style.display = 'none';
+            suggestionsSection.style.display = 'none';
+            badge.style.display = 'none';
+
+            title.textContent = data.title;
+            contentType.textContent = `${data.content_type.toUpperCase()} • Analyzed against all projects`;
+
+            // Create or get multi-results container
+            let multiResults = document.getElementById('multiResults');
+            if (!multiResults) {
+                multiResults = document.createElement('div');
+                multiResults.id = 'multiResults';
+                multiResults.className = 'section';
+                document.getElementById('results').appendChild(multiResults);
+            }
+            multiResults.style.display = 'block';
+
+            if (data.results.length === 0) {
+                multiResults.innerHTML = `
+                    <div class="section-title">Relevant Projects</div>
+                    <p style="color: #666; padding: 12px 0;">No projects found with high or medium relevance.</p>
+                `;
+                return;
+            }
+
+            let html = '<div class="section-title">Relevant Projects</div>';
+            data.results.forEach(result => {
+                html += `
+                    <div class="project-result">
+                        <div class="project-result-header">
+                            <span class="project-name">${result.project}</span>
+                            <span class="relevance-badge relevance-${result.relevance}">${result.relevance}</span>
+                        </div>
+                        <ul class="project-insights">
+                            ${result.insights.map(i => `<li>${i}</li>`).join('')}
+                        </ul>
+                    </div>
+                `;
+            });
+
+            multiResults.innerHTML = html;
         }
 
         // Initialize
