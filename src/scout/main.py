@@ -26,9 +26,17 @@ app.add_middleware(
 app.include_router(router, prefix="/api")
 
 # Serve static files (frontend)
-static_dir = Path(__file__).parent.parent.parent / "static"
-if static_dir.exists():
-    app.mount("/", StaticFiles(directory=str(static_dir), html=True), name="static")
+# Try multiple paths: env var, /app/static (Docker), or relative to source
+import os
+static_paths = [
+    os.environ.get("STATIC_DIR"),
+    "/app/static",
+    str(Path(__file__).parent.parent.parent / "static"),
+]
+for path in static_paths:
+    if path and Path(path).exists():
+        app.mount("/", StaticFiles(directory=path, html=True), name="static")
+        break
 
 
 def main():
