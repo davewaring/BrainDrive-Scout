@@ -21,8 +21,8 @@ class ContextLoader:
         }
 
     async def list_projects(self) -> list[ProjectInfo]:
-        """List all project directories in the library repo."""
-        url = f"{self.base_url}/repos/{self.library_repo}/contents"
+        """List all project directories in projects/active/."""
+        url = f"{self.base_url}/repos/{self.library_repo}/contents/projects/active"
 
         async with httpx.AsyncClient(timeout=self.timeout) as client:
             response = await client.get(url, headers=self._get_headers())
@@ -78,7 +78,7 @@ class ContextLoader:
 
     async def _fetch_file(self, project_name: str, filename: str) -> str | None:
         """Fetch a specific file from a project directory."""
-        url = f"{self.base_url}/repos/{self.library_repo}/contents/{project_name}/{filename}"
+        url = f"{self.base_url}/repos/{self.library_repo}/contents/projects/active/{project_name}/{filename}"
 
         try:
             async with httpx.AsyncClient(timeout=self.timeout) as client:
