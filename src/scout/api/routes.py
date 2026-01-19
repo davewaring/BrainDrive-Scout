@@ -46,34 +46,29 @@ async def review_url(request: ReviewRequest, settings: Settings = Depends(get_se
     url_str = str(request.url)
     from scout.models.schemas import FetchedContent, ContentType
 
-    # 1. Fetch content from URL (or use provided content as fallback)
-    content = None
-    fetch_error = None
+    # Determine content type from URL
+    content_type = ContentType.UNKNOWN
+    if "twitter.com" in url_str or "x.com" in url_str:
+        content_type = ContentType.TWITTER
+    elif "youtube.com" in url_str or "youtu.be" in url_str:
+        content_type = ContentType.YOUTUBE
+    else:
+        content_type = ContentType.ARTICLE
 
-    try:
-        content = await fetcher.fetch(url_str)
-    except Exception as e:
-        fetch_error = str(e)
-
-    # If fetch failed but manual content provided, use that instead
-    if (content is None or not content.content.strip()) and request.content:
-        # Determine content type from URL
-        content_type = ContentType.UNKNOWN
-        if "twitter.com" in url_str or "x.com" in url_str:
-            content_type = ContentType.TWITTER
-        elif "youtube.com" in url_str or "youtu.be" in url_str:
-            content_type = ContentType.YOUTUBE
-        else:
-            content_type = ContentType.ARTICLE
-
+    # 1. If manual content provided, use it (user explicitly pasted it)
+    if request.content and request.content.strip():
         content = FetchedContent(
             url=url_str,
             title="Manual Content",
             content=request.content,
             content_type=content_type,
         )
-    elif content is None:
-        raise HTTPException(status_code=400, detail=f"Failed to fetch content: {fetch_error}")
+    else:
+        # Try to fetch from URL
+        try:
+            content = await fetcher.fetch(url_str)
+        except Exception as e:
+            raise HTTPException(status_code=400, detail=f"Failed to fetch content: {str(e)}")
 
     loader = get_context_loader(settings.github_token, settings.library_repo)
     analyzer = get_analyzer(settings.anthropic_api_key)
