@@ -43,20 +43,27 @@ async def list_projects(settings: Settings = Depends(get_settings)):
 )
 async def review_url(request: ReviewRequest, settings: Settings = Depends(get_settings)):
     """Review a URL against a specific project (or all projects) and return relevance analysis."""
-    url_str = str(request.url)
     from scout.models.schemas import FetchedContent, ContentType
 
+    # Validate: need either URL or content
+    has_url = request.url is not None
+    has_content = request.content and request.content.strip()
+
+    if not has_url and not has_content:
+        raise HTTPException(status_code=400, detail="Please provide either a URL or paste content manually")
+
+    url_str = str(request.url) if request.url else "manual://content"
+
     # Determine content type from URL
-    content_type = ContentType.UNKNOWN
-    if "twitter.com" in url_str or "x.com" in url_str:
-        content_type = ContentType.TWITTER
-    elif "youtube.com" in url_str or "youtu.be" in url_str:
-        content_type = ContentType.YOUTUBE
-    else:
-        content_type = ContentType.ARTICLE
+    content_type = ContentType.ARTICLE
+    if has_url:
+        if "twitter.com" in url_str or "x.com" in url_str:
+            content_type = ContentType.TWITTER
+        elif "youtube.com" in url_str or "youtu.be" in url_str:
+            content_type = ContentType.YOUTUBE
 
     # 1. If manual content provided, use it (user explicitly pasted it)
-    if request.content and request.content.strip():
+    if has_content:
         content = FetchedContent(
             url=url_str,
             title="Manual Content",

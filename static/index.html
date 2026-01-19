@@ -360,8 +360,7 @@
                     type="url"
                     id="url"
                     name="url"
-                    placeholder="https://example.com/article"
-                    required
+                    placeholder="https://example.com/article (optional if pasting content)"
                 >
                 <div class="content-toggle" id="contentToggle" onclick="toggleManualContent()">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -461,9 +460,16 @@
         document.getElementById('reviewForm').addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const url = document.getElementById('url').value;
+            const url = document.getElementById('url').value.trim();
             const project = document.getElementById('project').value;
             const manualContent = document.getElementById('manualContent').value.trim();
+
+            // Validate: need either URL or content
+            if (!url && !manualContent) {
+                error.textContent = 'Please provide either a URL or paste content manually';
+                error.classList.add('active');
+                return;
+            }
             const submitBtn = document.getElementById('submitBtn');
             const loading = document.getElementById('loading');
             const results = document.getElementById('results');
@@ -476,7 +482,10 @@
             submitBtn.disabled = true;
 
             try {
-                const requestBody = { url, project };
+                const requestBody = { project };
+                if (url) {
+                    requestBody.url = url;
+                }
                 if (manualContent) {
                     requestBody.content = manualContent;
                 }
