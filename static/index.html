@@ -65,6 +65,69 @@
             color: #666;
         }
 
+        textarea {
+            width: 100%;
+            padding: 12px 16px;
+            font-size: 0.9375rem;
+            font-family: inherit;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #1a1a1a;
+            color: #fff;
+            resize: vertical;
+            min-height: 120px;
+            transition: border-color 0.2s;
+        }
+
+        textarea:focus {
+            outline: none;
+            border-color: #646cff;
+        }
+
+        textarea::placeholder {
+            color: #666;
+        }
+
+        .content-toggle {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.8125rem;
+            color: #646cff;
+            cursor: pointer;
+            margin-top: 8px;
+            padding: 4px 0;
+        }
+
+        .content-toggle:hover {
+            color: #535bf2;
+        }
+
+        .content-toggle svg {
+            width: 14px;
+            height: 14px;
+            transition: transform 0.2s;
+        }
+
+        .content-toggle.expanded svg {
+            transform: rotate(90deg);
+        }
+
+        .manual-content-wrapper {
+            display: none;
+            margin-top: 12px;
+        }
+
+        .manual-content-wrapper.active {
+            display: block;
+        }
+
+        .helper-text {
+            font-size: 0.75rem;
+            color: #666;
+            margin-top: 6px;
+        }
+
         button {
             width: 100%;
             padding: 14px 24px;
@@ -300,6 +363,21 @@
                     placeholder="https://example.com/article"
                     required
                 >
+                <div class="content-toggle" id="contentToggle" onclick="toggleManualContent()">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M9 18l6-6-6-6"/>
+                    </svg>
+                    <span>Paste content manually (if URL can't be fetched)</span>
+                </div>
+                <div class="manual-content-wrapper" id="manualContentWrapper">
+                    <textarea
+                        id="manualContent"
+                        name="content"
+                        placeholder="Paste the article text, tweet content, or video transcript here..."
+                        rows="6"
+                    ></textarea>
+                    <div class="helper-text">This will be used if the URL content cannot be automatically fetched.</div>
+                </div>
             </div>
 
             <div class="form-group">
@@ -341,6 +419,14 @@
     <script>
         const API_BASE = '/api';
 
+        // Toggle manual content textarea
+        function toggleManualContent() {
+            const toggle = document.getElementById('contentToggle');
+            const wrapper = document.getElementById('manualContentWrapper');
+            toggle.classList.toggle('expanded');
+            wrapper.classList.toggle('active');
+        }
+
         // Load projects on page load
         async function loadProjects() {
             const select = document.getElementById('project');
@@ -377,6 +463,7 @@
 
             const url = document.getElementById('url').value;
             const project = document.getElementById('project').value;
+            const manualContent = document.getElementById('manualContent').value.trim();
             const submitBtn = document.getElementById('submitBtn');
             const loading = document.getElementById('loading');
             const results = document.getElementById('results');
@@ -389,12 +476,17 @@
             submitBtn.disabled = true;
 
             try {
+                const requestBody = { url, project };
+                if (manualContent) {
+                    requestBody.content = manualContent;
+                }
+
                 const response = await fetch(`${API_BASE}/review`, {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ url, project }),
+                    body: JSON.stringify(requestBody),
                 });
 
                 if (!response.ok) {

@@ -21,6 +21,7 @@ class RelevanceLevel(str, Enum):
 class ReviewRequest(BaseModel):
     url: HttpUrl
     project: str = Field(..., min_length=1, description="Project name from BrainDrive-Library")
+    content: Optional[str] = Field(None, description="Optional manual content if URL fetch fails")
 
 
 class ReviewResponse(BaseModel):
