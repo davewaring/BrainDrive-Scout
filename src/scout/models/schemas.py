@@ -94,3 +94,22 @@ class MultiProjectReviewResponse(BaseModel):
     content_type: ContentType
     results: list[ProjectRelevance] = Field(default_factory=list)
     logged_at: datetime
+
+
+class ChatMessage(BaseModel):
+    """A single message in a chat conversation."""
+    role: str = Field(..., description="Role of the message sender: 'user' or 'assistant'")
+    content: str = Field(..., description="Content of the message")
+
+
+class ChatRequest(BaseModel):
+    """Request for chat follow-up after analysis."""
+    messages: list[ChatMessage] = Field(..., description="Conversation history")
+    project: str = Field(..., min_length=1, description="Project name from BrainDrive-Library")
+    analysis_context: str = Field(..., description="The original content that was analyzed")
+    initial_analysis: str = Field(..., description="The initial analysis result (insights/suggestions)")
+
+
+class ChatResponse(BaseModel):
+    """Response from chat endpoint."""
+    message: str = Field(..., description="Assistant's response")

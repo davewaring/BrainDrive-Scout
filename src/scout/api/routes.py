@@ -5,6 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException
 
 from scout.config import Settings, get_settings
 from scout.models.schemas import (
+    ChatRequest,
+    ChatResponse,
     ErrorResponse,
     MultiProjectReviewResponse,
     ProjectListResponse,
@@ -124,6 +126,46 @@ async def review_url(request: ReviewRequest, settings: Settings = Depends(get_se
         suggestions=analysis.suggestions,
         logged_at=logged_at or datetime.now(),
     )
+
+
+@router.post(
+    "/chat",
+    response_model=ChatResponse,
+    responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}},
+)
+async def chat(request: ChatRequest, settings: Settings = Depends(get_settings)):
+    """Continue a conversation about previously analyzed content."""
+    if not request.messages:
+        raise HTTPException(status_code=400, detail="No messages provided")
+
+    loader = get_context_loader(settings.github_token, settings.library_repo)
+    analyzer = get_analyzer(settings.anthropic_api_key)
+
+    # Load project context
+    try:
+        project_context = await loader.load_project_context(request.project)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to load project context: {str(e)}")
+
+    # Check if project has any context
+    if not project_context.spec and not project_context.build_plan and not project_context.ideas:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Project '{request.project}' not found or has no context files",
+        )
+
+    # Call Claude with conversation history
+    try:
+        response_message = await analyzer.chat(
+            messages=request.messages,
+            project_context=project_context,
+            analysis_context=request.analysis_context,
+            initial_analysis=request.initial_analysis,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Chat failed: {str(e)}")
+
+    return ChatResponse(message=response_message)
 
 
 async def _review_all_projects(url_str, content, loader, analyzer, research_logger):

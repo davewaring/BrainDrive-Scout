@@ -5,6 +5,7 @@ from anthropic import Anthropic
 
 from scout.models.schemas import (
     AnalysisResult,
+    ChatMessage,
     FetchedContent,
     ProjectContext,
     RelevanceLevel,
@@ -101,6 +102,49 @@ class Analyzer:
                 insights=[f"Analysis parsing error: {str(e)}"],
                 suggestions=["Please try again or review the content manually"],
             )
+
+    async def chat(
+        self,
+        messages: list[ChatMessage],
+        project_context: ProjectContext,
+        analysis_context: str,
+        initial_analysis: str,
+    ) -> str:
+        """Continue a conversation about analyzed content."""
+        system_prompt = f"""You are a research assistant helping discuss content that was analyzed for relevance to a software project.
+
+## Project Context
+Project Name: {project_context.name}
+
+{project_context.get_combined_context()}
+
+## Original Analyzed Content
+{analysis_context}
+
+## Initial Analysis Results
+{initial_analysis}
+
+## Your Role
+Help the user explore this content further. You can:
+- Explain insights in more detail
+- Discuss how specific parts of the content apply to the project
+- Suggest implementation approaches based on the content
+- Answer questions about the content or the analysis
+- Provide additional context or clarification
+
+Be concise but thorough. Reference specific parts of the content when relevant."""
+
+        # Convert ChatMessage objects to dicts for the API
+        api_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
+
+        message = self.client.messages.create(
+            model=self.model,
+            max_tokens=2048,
+            system=system_prompt,
+            messages=api_messages,
+        )
+
+        return message.content[0].text
 
 
 # Factory function

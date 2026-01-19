@@ -334,6 +334,148 @@
             color: #646cff;
         }
 
+        /* Chat styles */
+        .chat-section {
+            display: none;
+            margin-top: 24px;
+            padding: 20px;
+            background: #1a1a1a;
+            border-radius: 12px;
+            border: 1px solid #333;
+        }
+
+        .chat-section.active {
+            display: block;
+        }
+
+        .chat-header {
+            font-size: 1rem;
+            font-weight: 600;
+            color: #fff;
+            margin-bottom: 16px;
+        }
+
+        .chat-messages {
+            max-height: 400px;
+            overflow-y: auto;
+            margin-bottom: 16px;
+            padding-right: 8px;
+        }
+
+        .chat-message {
+            padding: 12px 16px;
+            margin-bottom: 12px;
+            border-radius: 8px;
+            font-size: 0.9375rem;
+            line-height: 1.5;
+        }
+
+        .chat-message:last-child {
+            margin-bottom: 0;
+        }
+
+        .chat-message.user {
+            background: #2a2a4a;
+            border-left: 3px solid #646cff;
+            color: #e0e0e0;
+        }
+
+        .chat-message.assistant {
+            background: #252525;
+            border-left: 3px solid #22c55e;
+            color: #d0d0d0;
+        }
+
+        .chat-message.assistant p {
+            margin: 0 0 12px 0;
+        }
+
+        .chat-message.assistant p:last-child {
+            margin-bottom: 0;
+        }
+
+        .chat-message.assistant ul,
+        .chat-message.assistant ol {
+            margin: 8px 0;
+            padding-left: 20px;
+        }
+
+        .chat-message.assistant li {
+            margin-bottom: 4px;
+        }
+
+        .chat-message.assistant code {
+            background: #1a1a1a;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+
+        .chat-message.assistant pre {
+            background: #1a1a1a;
+            padding: 12px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin: 8px 0;
+        }
+
+        .chat-message.assistant pre code {
+            background: transparent;
+            padding: 0;
+        }
+
+        .chat-input-form {
+            display: flex;
+            gap: 12px;
+        }
+
+        .chat-input {
+            flex: 1;
+            padding: 12px 16px;
+            font-size: 0.9375rem;
+            font-family: inherit;
+            border: 1px solid #333;
+            border-radius: 8px;
+            background: #0f0f0f;
+            color: #fff;
+            resize: none;
+            min-height: 44px;
+            max-height: 120px;
+        }
+
+        .chat-input:focus {
+            outline: none;
+            border-color: #646cff;
+        }
+
+        .chat-input::placeholder {
+            color: #666;
+        }
+
+        .chat-send-btn {
+            width: auto;
+            padding: 12px 20px;
+            margin-top: 0;
+            flex-shrink: 0;
+        }
+
+        .chat-send-btn:disabled {
+            background: #333;
+        }
+
+        .chat-loading {
+            display: none;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            color: #a0a0a0;
+            font-size: 0.875rem;
+        }
+
+        .chat-loading.active {
+            display: flex;
+        }
+
         @media (max-width: 480px) {
             body {
                 padding: 12px;
@@ -413,10 +555,36 @@
                 <ul id="suggestionsList"></ul>
             </div>
         </div>
+
+        <div class="chat-section" id="chatSection">
+            <div class="chat-header">Ask Follow-up Questions</div>
+            <div class="chat-messages" id="chatMessages"></div>
+            <div class="chat-loading" id="chatLoading">
+                <div class="spinner"></div>
+                <span>Thinking...</span>
+            </div>
+            <form class="chat-input-form" id="chatForm">
+                <textarea
+                    class="chat-input"
+                    id="chatInput"
+                    placeholder="Ask a follow-up question about this analysis..."
+                    rows="1"
+                ></textarea>
+                <button type="submit" class="chat-send-btn" id="chatSendBtn">Send</button>
+            </form>
+        </div>
     </div>
 
     <script>
         const API_BASE = '/api';
+
+        // Chat state
+        let chatState = {
+            project: null,
+            analysisContext: null,
+            initialAnalysis: null,
+            messages: []
+        };
 
         // Toggle manual content textarea
         function toggleManualContent() {
@@ -504,7 +672,10 @@
                 }
 
                 const data = await response.json();
-                displayResults(data);
+
+                // Build analysis context from available content
+                const analysisContext = manualContent || `URL: ${url}`;
+                displayResults(data, analysisContext);
             } catch (err) {
                 error.textContent = err.message;
                 error.classList.add('active');
@@ -514,17 +685,47 @@
             }
         });
 
-        function displayResults(data) {
+        function displayResults(data, analysisContext) {
             const results = document.getElementById('results');
+            const chatSection = document.getElementById('chatSection');
 
             // Check if this is a multi-project response
             if (data.results) {
                 displayMultiProjectResults(data);
+                // Hide chat for multi-project (too complex to track context)
+                chatSection.classList.remove('active');
             } else {
                 displaySingleProjectResults(data);
+                // Initialize chat for single project
+                initializeChat(data, analysisContext);
+                chatSection.classList.add('active');
             }
 
             results.classList.add('active');
+        }
+
+        function initializeChat(analysisData, analysisContext) {
+            // Store context for chat
+            chatState.project = analysisData.project;
+            chatState.analysisContext = analysisContext;
+            chatState.initialAnalysis = formatAnalysisForChat(analysisData);
+            chatState.messages = [];
+
+            // Clear previous chat messages
+            document.getElementById('chatMessages').innerHTML = '';
+        }
+
+        function formatAnalysisForChat(data) {
+            let analysis = `Relevance: ${data.relevance.toUpperCase()}\n\n`;
+            analysis += `Key Insights:\n`;
+            data.insights.forEach((insight, i) => {
+                analysis += `${i + 1}. ${insight}\n`;
+            });
+            analysis += `\nSuggestions:\n`;
+            data.suggestions.forEach((suggestion, i) => {
+                analysis += `${i + 1}. ${suggestion}\n`;
+            });
+            return analysis;
         }
 
         function displaySingleProjectResults(data) {
@@ -615,6 +816,118 @@
 
             multiResults.innerHTML = html;
         }
+
+        // Chat form handler
+        document.getElementById('chatForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const input = document.getElementById('chatInput');
+            const userMessage = input.value.trim();
+
+            if (!userMessage || !chatState.project) return;
+
+            const sendBtn = document.getElementById('chatSendBtn');
+            const chatLoading = document.getElementById('chatLoading');
+
+            // Add user message to state and display
+            chatState.messages.push({ role: 'user', content: userMessage });
+            appendChatMessage('user', userMessage);
+
+            // Clear input and disable form
+            input.value = '';
+            sendBtn.disabled = true;
+            chatLoading.classList.add('active');
+
+            try {
+                const response = await fetch(`${API_BASE}/chat`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        messages: chatState.messages,
+                        project: chatState.project,
+                        analysis_context: chatState.analysisContext,
+                        initial_analysis: chatState.initialAnalysis
+                    }),
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || 'Chat failed');
+                }
+
+                const data = await response.json();
+
+                // Add assistant message to state and display
+                chatState.messages.push({ role: 'assistant', content: data.message });
+                appendChatMessage('assistant', data.message);
+
+            } catch (err) {
+                appendChatMessage('assistant', `Error: ${err.message}`);
+            } finally {
+                sendBtn.disabled = false;
+                chatLoading.classList.remove('active');
+                input.focus();
+            }
+        });
+
+        function appendChatMessage(role, content) {
+            const messagesContainer = document.getElementById('chatMessages');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = `chat-message ${role}`;
+
+            if (role === 'assistant') {
+                // Render markdown-like formatting for assistant messages
+                messageDiv.innerHTML = formatMarkdown(content);
+            } else {
+                messageDiv.textContent = content;
+            }
+
+            messagesContainer.appendChild(messageDiv);
+
+            // Auto-scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function formatMarkdown(text) {
+            // Basic markdown-like formatting
+            let html = text
+                // Escape HTML first
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                // Code blocks
+                .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+                // Inline code
+                .replace(/`([^`]+)`/g, '<code>$1</code>')
+                // Bold
+                .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+                // Italic
+                .replace(/\*([^*]+)\*/g, '<em>$1</em>')
+                // Line breaks
+                .replace(/\n/g, '<br>');
+
+            // Simple list handling (lines starting with - or *)
+            html = html.replace(/(<br>)?([-*])\s+(.+?)(?=<br>|$)/g, '<li>$3</li>');
+            html = html.replace(/(<li>.*<\/li>)+/g, '<ul>$&</ul>');
+
+            return html;
+        }
+
+        // Handle Enter key in chat input (Shift+Enter for newline)
+        document.getElementById('chatInput').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                document.getElementById('chatForm').dispatchEvent(new Event('submit'));
+            }
+        });
+
+        // Auto-resize chat input
+        document.getElementById('chatInput').addEventListener('input', function() {
+            this.style.height = 'auto';
+            this.style.height = Math.min(this.scrollHeight, 120) + 'px';
+        });
 
         // Initialize
         loadProjects();
